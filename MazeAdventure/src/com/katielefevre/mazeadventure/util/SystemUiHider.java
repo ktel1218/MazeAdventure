@@ -1,4 +1,4 @@
-package com.example.mazeadventure.util;
+package com.katielefevre.mazeadventure.util;
 
 import android.app.Activity;
 import android.os.Build;
@@ -10,15 +10,15 @@ import android.view.View;
  * techniques described in <a href=
  * "http://developer.android.com/training/backward-compatible-ui/index.html">
  * Creating Backward-Compatible UIs</a> to ensure that devices running any
- * version of ndroid OS are supported. More specifically, there are separate
+ * version of Android OS are supported. More specifically, there are separate
  * implementations of this abstract class: for newer devices,
  * {@link #getInstance} will return a {@link SystemUiHiderHoneycomb} instance,
  * while on older devices {@link #getInstance} will return a
  * {@link SystemUiHiderBase} instance.
  * <p>
- * For more on system bars, see <a href=
- * "http://developer.android.com/design/get-started/ui-overview.html#system-bars"
- * > System Bars</a>.
+ * For more on system bars, see 
+ * <a href="http://developer.android.com/design/get-started/ui-overview.html#system-bars"> System Bars</a>
+ * .
  * 
  * @see android.view.View#setSystemUiVisibility(int)
  * @see android.view.WindowManager.LayoutParams#FLAG_FULLSCREEN

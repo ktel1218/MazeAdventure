@@ -1,4 +1,4 @@
-package com.example.mazeadventure.util;
+package com.katielefevre.mazeadventure.util;
 
 import android.annotation.TargetApi;
 import android.app.Activity;

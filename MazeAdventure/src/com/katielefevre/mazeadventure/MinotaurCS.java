@@ -1,4 +1,6 @@
-package com.example.mazeadventure;
+package com.katielefevre.mazeadventure;
+
+import com.katielefevre.mazeadventure.R;
 
 import android.app.Activity;
 import android.media.MediaPlayer;

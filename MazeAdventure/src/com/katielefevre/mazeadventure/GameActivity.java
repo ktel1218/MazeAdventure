@@ -1,7 +1,9 @@
-package com.example.mazeadventure;
+package com.katielefevre.mazeadventure;
 
 import java.util.Timer;
 import java.util.TimerTask;
+
+import com.katielefevre.mazeadventure.R;
 
 import android.annotation.TargetApi;
 import android.app.Activity;

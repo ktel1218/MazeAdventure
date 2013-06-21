@@ -1,4 +1,4 @@
-package com.example.mazeadventure.util;
+package com.katielefevre.mazeadventure.util;
 
 import android.app.Activity;
 import android.view.View;
