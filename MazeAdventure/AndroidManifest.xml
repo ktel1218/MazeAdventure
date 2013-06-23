@@ -27,7 +27,7 @@
             android:label="@string/title_activity_game"
             android:theme="@style/FullscreenTheme" >
             <intent-filter>
-                <action android:name="com.example.mazeadventure.GAME" />
+                <action android:name="com.katielefevre.mazeadventure.GAME" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -37,7 +37,7 @@
             android:label="@string/title_activity_game"
             android:theme="@style/FullscreenTheme" >
             <intent-filter>
-                <action android:name="com.example.mazeadventure.NEXT" />
+                <action android:name="com.katielefevre.mazeadventure.NEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
