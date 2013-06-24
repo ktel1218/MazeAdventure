@@ -53,7 +53,7 @@ public class NextMaze extends Activity{
 				}
 				finally
 				{
-					Intent openNewMaze = new Intent("com.example.mazeadventure.GAME");
+					Intent openNewMaze = new Intent("com.katielefevre.mazeadventure.GAME");
 					startActivity(openNewMaze);
 				}
 			}

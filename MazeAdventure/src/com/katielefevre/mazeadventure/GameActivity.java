@@ -83,13 +83,15 @@ public class GameActivity extends Activity
 	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		requestWindowFeature(Window.FEATURE_NO_TITLE); //hide title bar
+		//hide title bar
+		requestWindowFeature(Window.FEATURE_NO_TITLE); 
 		//set app to full screen and keep screen on 
 		getWindow().setFlags(0xFFFFFFFF,
 				LayoutParams.FLAG_FULLSCREEN|LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_game);
+		
 		getWindow().getDecorView().setBackgroundColor(Color.BLACK);
 		//create pointer to main screen
 		final FrameLayout mainView = 
@@ -128,7 +130,6 @@ public class GameActivity extends Activity
 			}
 
 		makeMaze(BLOCK, mainView);
-		//TODO
 
 		mainView.setX((mScrWidth-(MWIDTH*BLOCK))/4);
 
