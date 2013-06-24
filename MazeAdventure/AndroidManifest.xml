@@ -32,7 +32,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name="com.katielefevre.mazeadventure.NextMaze"
+            android:name="com.katielefevre.mazeadventure.LevelAdvanceActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:label="@string/title_activity_game"
             android:theme="@style/FullscreenTheme" >

@@ -5,147 +5,110 @@ import java.util.TimerTask;
 
 import com.katielefevre.mazeadventure.R;
 
-import android.annotation.TargetApi;
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.Point;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.View;
-import android.view.Window;
-import android.view.WindowManager.LayoutParams;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
-@TargetApi(Build.VERSION_CODES.HONEYCOMB)
-public class GameActivity extends Activity 
+public class GameActivity extends BaseActivity 
 {    
-	BallView mBallView = null;
-	//TimerView mTimerView = null;
-	Handler RedrawHandler = new Handler();
-	Timer mTmr = null;
-	TimerTask mTsk = null;
+	private BallView mBallView = null;
+	private Handler RedrawHandler = new Handler();
+	
+	private long gameTimer = 0;
+	private Timer mTmr = null;
+	private TimerTask mTsk = null;
+	//private TimerView mTimerView = null;
+	
+	private String toast_stringStart=" @";
+	private Handler mazeStartToast;
 
-	String toast_stringStart=" @";
-	Handler mazeStartToast;
+	private String toast_stringFinish=" @";
+	private Handler mazeFinishToast;
 
-	String toast_stringFinish=" @";
-	Handler mazeFinishToast;
+	private GameActivity game;
 
-	GameActivity main;
-	FrameLayout mainFrame;
+//	static boolean level_complete = false;
+	boolean mFirstCellExited = false;
 
-	long gameTimer = 0;
+	private int mScrWidth, mScrHeight;
+	
+	//
+	// Ball variables - move to Maze
+	private final float RADIUS_FACTOR = (float) 0.25;
+	private float mRadius; 
+	private android.graphics.PointF mBallPos, mBallSpd;
+	//
 
-	static boolean level_complete = false;
-	boolean first_cell_exited = false;
-
-
-	static int mScrWidth, mScrHeight;
-	android.graphics.PointF mBallPos, mBallSpd;
-
-	public static int BLOCK = 120;
-
-	public static int MWIDTH=8; //default to be reassigned as screenwidth/BLOCK
-	public static int MHEIGHT=12; // same as above
-
-	public static float radius = (float) (.25*BLOCK);// set ball radius as factor of BLOCK size for scaling purposes
-
-	static Cell[][] maze;
-	private MazeComponent mazeView;
-
-	public static Paint mazePaint = new Paint(Color.BLACK);// wall color, doesn't do anything
-	public static float wallWidth = (float) (.22*BLOCK);
-
-	public static final int ADDED = 0, NORTH = 1, SOUTH = 2, WEST = 3, EAST = 4;
-
-	public static Paint targetPaint1 = new Paint(Paint.ANTI_ALIAS_FLAG);// target color 1
-	public static Paint targetPaint2 = new Paint(Paint.ANTI_ALIAS_FLAG);// target color 2
-	public static Paint backPaint = new Paint (Paint.ANTI_ALIAS_FLAG);// background color
-	public static Paint backPaint2 = new Paint (Paint.ANTI_ALIAS_FLAG);// background color 2 for fade
-
-	Intent openNextMaze;
-
-
-	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR2)
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		requestWindowFeature(Window.FEATURE_NO_TITLE); //hide title bar
-		//set app to full screen and keep screen on 
-		getWindow().setFlags(0xFFFFFFFF,
-				LayoutParams.FLAG_FULLSCREEN|LayoutParams.FLAG_KEEP_SCREEN_ON);
-
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_game);
+		
 		getWindow().getDecorView().setBackgroundColor(Color.BLACK);
-		//create pointer to main screen
 		final FrameLayout mainView = 
 				(android.widget.FrameLayout)findViewById(R.id.main_view);
 
 		mazeStartToast = new Handler(); 
 		mazeFinishToast = new Handler(); 
 
-		main = this;
-		mainFrame = mainView;
+		game = this;
 
 		//get screen dimensions
 		Display display = getWindowManager().getDefaultDisplay();  
+
+		int BLOCK = GameSettings.getInstance(this).BLOCK();
+		
 		Point size = new Point();
 		display.getSize(size);
+		
 		mScrWidth = size.x;
 		mScrHeight = size.y;
+		
 		mBallPos = new android.graphics.PointF();
 		mBallSpd = new android.graphics.PointF();
-		MWIDTH = mScrWidth/BLOCK;
-		MHEIGHT = mScrHeight/BLOCK;
+		
+		// set ball radius as factor of BLOCK size for scaling purposes
+		mRadius = (RADIUS_FACTOR * BLOCK);
 
 		//create variables for ball position and speed
-		//mBallPos.x = mScrWidth/2;  // STARTS BALL IN CENTER OF MAZE
+		//
+		// STARTS BALL IN CENTER OF MAZE
+		//mBallPos.x = mScrWidth/2;  
 		//mBallPos.y = mScrHeight/2; 
-		mBallPos.x=0; //STARTS BALL IN UPPER LEFT OF MAZE
+		//
+		// STARTS BALL IN UPPER LEFT OF MAZE
+		mBallPos.x=0; 
 		mBallPos.y=0;
+		//
+		// SPEED
 		mBallSpd.x = 0;
 		mBallSpd.y = 0;
 
-		maze=new Cell[MWIDTH][MHEIGHT];
-		for (int i=0; i<MWIDTH; i++)
-			for (int j=0; j<MHEIGHT; j++)
-			{
-				maze[i][j] = new Cell(i, j);
-			}
-
-		makeMaze(BLOCK, mainView);
-		//TODO
-
+		int MWIDTH = mScrWidth/BLOCK;
 		mainView.setX((mScrWidth-(MWIDTH*BLOCK))/4);
+		
+		Maze.BuildMaze(mScrWidth, mScrHeight, BLOCK);
+		mainView.addView(new MazeView(this));
 
-		//create maze view
-		mazeView = new MazeComponent(this);
-		//add it to main view
-		mainView.addView(mazeView);
-
-		//create initial ball
-		mBallView = new BallView(this, mBallPos.x, mBallPos.y, radius);
-		//add it to view
-		mainView.addView(mBallView); //add ball to main screen
-		mBallView.invalidate(); //call onDraw in BallView
+		mBallView = new BallView(this, mBallPos.x, mBallPos.y, mRadius);
+		mainView.addView(mBallView); 	//add ball to main screen
+		mBallView.invalidate(); 		//call onDraw in BallView
 
 		/*//create timer
 		mTimerView = new TimerView(this);
-		//add it to view
 		mainView.addView(mTimerView); //add timer to main screen
 		mTimerView.invalidate(); //call onDraw in TimerView
 		 */
@@ -164,8 +127,8 @@ public class GameActivity extends Activity
 					public void onAccuracyChanged(Sensor sensor, int accuracy) {} //ignore
 				},
 				((SensorManager)getSystemService(Context.SENSOR_SERVICE))
-				.getSensorList(Sensor.TYPE_ACCELEROMETER).get(0),   
-				SensorManager.SENSOR_DELAY_NORMAL);
+				               .getSensorList(Sensor.TYPE_ACCELEROMETER).get(0),   
+				                              SensorManager.SENSOR_DELAY_NORMAL);
 		//listener for touch event 
 		mainView.setOnTouchListener(new android.view.View.OnTouchListener() {
 			@Override
@@ -181,250 +144,6 @@ public class GameActivity extends Activity
 			}}); 
 	}
 	//OnCreate
-
-	public class Cell 
-	{ // TODO Cell
-		int x, y;
-		boolean[] walls = { false, true, true, true, true };
-
-		public Cell(int X, int Y) {
-			this.x = X;
-			this.y = Y;
-		}
-		public String printCell()
-		{
-			return " " + this.x + " " + walls[0] +" " + walls[1] + " " + walls[2] + " " + walls[3] + " " + walls[4];
-		}
-	}
-
-	public static void makeMaze(int block, FrameLayout mainView)
-	{
-		BLOCK = block;
-
-		wallWidth = (float) (.22*BLOCK);
-		radius = (float) (.25*BLOCK);
-		MWIDTH = mScrWidth/BLOCK;
-		MHEIGHT = mScrHeight/BLOCK;
-
-		int[] blockListX = new int[MWIDTH*MHEIGHT];
-		int[] blockListY = new int[MWIDTH*MHEIGHT];
-		int blocks=0;
-		int x,y;
-
-		// Choose random starting block and add it to maze
-		x = (int) (Math.random() * (MWIDTH - 2) + 1);
-		y = (int) (Math.random() * (MHEIGHT - 2) + 1);
-		maze[x][y].walls[ADDED] = true;// added to the maze
-
-		//Add all adjacent blocks to blocklist
-		if (x>0)
-		{
-			blockListX[blocks]=x-1;
-			blockListY[blocks]=y;
-			blocks++;
-		}
-		if (x<MWIDTH-1)
-		{
-			blockListX[blocks]=x+1;
-			blockListY[blocks]=y;
-			blocks++;
-		}
-		if (y>0)
-		{
-			blockListX[blocks]=x;
-			blockListY[blocks]=y-1;
-			blocks++;
-		}
-		if (y<MHEIGHT-1)
-		{
-			blockListX[blocks]=x;
-			blockListY[blocks]=y+1;
-			blocks++;
-		}
-
-		while (blocks>0)
-		{
-			//choose a random block from blocklist
-			int b = (int) (Math.random() * blocks);
-			x = blockListX[b];
-			y = blockListY[b];
-			int[] dir = new int[4];
-			int numdir = 0;
-
-			// find which block in the maze it is adjacent to
-			// if cell exists, note it and it's direction
-
-			// left
-			if (x > 0 && maze[x - 1][y].walls[ADDED]) {
-				dir[numdir++] = 0;
-			}
-			// right
-			if (x < MWIDTH - 1 && maze[x + 1][y].walls[ADDED]) {
-				dir[numdir++] = 1;
-			}
-			// up
-			if (y > 0 && maze[x][y - 1].walls[ADDED]) {
-				dir[numdir++] = 2;
-			}
-			// down
-			if (y < MHEIGHT - 1 && maze[x][y + 1].walls[ADDED]) {
-				dir[numdir++] = 3;
-			}
-
-			int d = (int)(Math.random()*numdir);
-			d=dir[d];
-
-			// And remove the wall between the two
-			// left
-			if (d == 0) {
-				maze[x][y].walls[WEST] = false;
-				maze[x - 1][y].walls[EAST] = false;
-			}
-			// right
-			else if (d == 1) {
-				maze[x][y].walls[EAST] = false;
-				maze[x + 1][y].walls[WEST] = false;
-			}
-			// up
-			else if (d == 2) {
-				maze[x][y].walls[NORTH] = false;
-				maze[x][y - 1].walls[SOUTH] = false;
-			}
-			// down
-			else if (d == 3) {
-				maze[x][y].walls[SOUTH] = false;
-				maze[x][y + 1].walls[NORTH] = false;
-			}
-
-			//set that block as "in the maze"
-			maze[x][y].walls[ADDED] = true;
-
-			// remove it from the block list
-			for (int j = 0; j < blocks; j++) {
-				if (maze[blockListX[j]][blockListY[j]].walls[ADDED]) {
-					for (int i = j; i < blocks - 1; i++) {
-						blockListX[i] = blockListX[i + 1];
-						blockListY[i] = blockListY[i + 1];
-					}
-					blocks--;
-					j = 0;
-				}
-			}
-
-			// put all adjacent blocks that aren't in the maze in the block list
-			if (x > 0 && !maze[x - 1][y].walls[ADDED]) {
-				blockListX[blocks] = x - 1;
-				blockListY[blocks] = y;
-				blocks++;
-			}
-			if (x < MWIDTH - 1 && !maze[x + 1][y].walls[ADDED]) {
-				blockListX[blocks] = x + 1;
-				blockListY[blocks] = y;
-				blocks++;
-			}
-			if (y > 0 && !maze[x][y - 1].walls[ADDED]) {
-				blockListX[blocks] = x;
-				blockListY[blocks] = y - 1;
-				blocks++;
-			}
-			if (y < MHEIGHT - 1 && !maze[x][y + 1].walls[ADDED]) {
-				blockListX[blocks] = x;
-				blockListY[blocks] = y + 1;
-				blocks++;
-			}
-		}
-		//remove top left and bottom right edges
-		maze[0][0].walls[WEST]=false;
-		maze[MWIDTH-1][MHEIGHT-1].walls[EAST]=false;
-	}
-
-
-	public static class MazeComponent extends View
-	{		
-
-		public MazeComponent(Context context) { 
-			super(context);
-			targetPaint1.setColor(0xffffffff); //white 
-			targetPaint2.setColor(0xff000000);  //black
-			backPaint.setColor(0xffffff00);//Yellow
-			backPaint2.setColor(0xff0000ff);//Blue
-			backPaint2.setAlpha(0);//increments to Blue
-			//backPaint3.setColor(0xff000000); // Black
-			//backPaint3.setAlpha(0);//increments to Black
-			//setBackgroundResource(R.drawable.background);			
-		}
-
-		public void onDraw(Canvas g)// DRAW MAZE
-		{	
-
-			/*float xscale = (float)g.getWidth()/(float)WINDOWX;
-			float yscale = (float)g.getHeight()/(float)WINDOWY;
-			g.scale(xscale,yscale);*/
-			g.drawRect(0,0, BLOCK*MWIDTH, BLOCK*MHEIGHT, backPaint);
-
-			for (int x=0; x<MWIDTH; x++)
-			{
-				for (int y=0; y<MHEIGHT; y++)
-				{
-					if (maze[x][y].walls[NORTH])
-					{
-						g.drawRect(x*BLOCK, y*BLOCK, (x+1)*BLOCK+wallWidth, y*BLOCK+wallWidth, mazePaint);
-					}
-					if (maze[x][y].walls[SOUTH])
-					{
-						g.drawRect(x*BLOCK, (y+1)*BLOCK, (x+1)*BLOCK+wallWidth, (y+1)*BLOCK+wallWidth, mazePaint);
-					}
-					if (maze[x][y].walls[WEST])
-					{
-						g.drawRect(x*BLOCK, y*BLOCK, x*BLOCK+wallWidth, (y+1)*BLOCK+wallWidth, mazePaint);
-					}
-					if (maze[x][y].walls[EAST])
-					{
-						g.drawRect((x+1)*BLOCK, y*BLOCK, (x+1)*BLOCK+wallWidth, (y+1)*BLOCK+wallWidth, mazePaint);
-					}
-
-					//draw end target
-					if (x == MWIDTH-1 && y == MHEIGHT-1)
-					{
-						g.drawCircle((x*BLOCK)+((BLOCK+wallWidth)/2), (y*BLOCK)+((BLOCK+wallWidth)/2), (float) (BLOCK/3), targetPaint2);
-						g.drawCircle((x*BLOCK)+((BLOCK+wallWidth)/2), (y*BLOCK)+((BLOCK+wallWidth)/2), (float) (BLOCK/4), targetPaint1);
-						g.drawCircle((x*BLOCK)+((BLOCK+wallWidth)/2), (y*BLOCK)+((BLOCK+wallWidth)/2), (float) (BLOCK/6), targetPaint2);
-						g.drawCircle((x*BLOCK)+((BLOCK+wallWidth)/2), (y*BLOCK)+((BLOCK+wallWidth)/2), (float) (BLOCK/11), targetPaint1);
-					}	
-				}
-			}
-		}
-	}
-
-	public class BallView extends View 
-	{
-
-		public float x;
-		public float y;
-		public float r;
-		private final Paint mPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-		//construct new ball object
-		public BallView(Context context, float x, float y, float radius) 
-		{
-			super(context);
-			//color hex is [transparency][red][green][blue]
-			mPaint.setColor(0xFF00FF00);  //not transparent. color is green
-			this.x = x;
-			this.y = y;
-			this.r = radius;  //radius
-		}               
-
-		//called by invalidate()
-		@Override
-		protected void onDraw(Canvas canvas) 
-		{
-			super.onDraw(canvas);
-			canvas.drawCircle(x, y, r, mPaint);
-		}
-
-	}
-
 
 	//listener for menu button on phone
 	@Override
@@ -445,9 +164,10 @@ public class GameActivity extends Activity
 			finish();
 		return super.onOptionsItemSelected(item);    
 	}
+	
 	//For state flow see http://developer.android.com/reference/android/app/Activity.html
 	@Override
-	public void onPause() //app moved to background, stop background threads
+	public void onPause() //application moved to background, stop background threads
 	{
 		super.onPause();
 		mTmr.cancel(); //kill\release timer (our only background thread)
@@ -457,7 +177,7 @@ public class GameActivity extends Activity
 	}
 
 	@Override
-	public void onResume() //app moved to foreground (also occurs at app startup)
+	public void onResume() //application moved to foreground (also occurs at application startup)
 	{
 		//create timer to move ball to new position
 		mTmr = new Timer(); 
@@ -465,6 +185,10 @@ public class GameActivity extends Activity
 			@Override
 			public void run() {
 
+				int BLOCK = Maze.BLOCK;
+				int wallWidth = Maze.WALL_WIDTH;
+				Maze.Cell[][] maze = Maze.getInstance().cells;
+				
 				//if debugging with external device, 
 				//  a log cat viewer will be needed on the device
 				//android.util.Log.d("TiltBall","Timer Hit - " + mBallPos.x + ":" + mBallPos.y);
@@ -486,46 +210,46 @@ public class GameActivity extends Activity
 				try{
 
 					//is there a top wall?
-					if (maze[currentCellX][currentCellY].walls[NORTH])
+					if (maze[currentCellX][currentCellY].walls[Maze.Wall.NORTH])
 					{
-						//dont go over top wall
+						//don't go over top wall
 
-						if (mBallPos.y-radius < currentCellY*BLOCK+wallWidth)
+						if (mBallPos.y-mRadius < currentCellY*BLOCK+wallWidth)
 						{
-							mBallPos.y = currentCellY*BLOCK+wallWidth+radius;
+							mBallPos.y = currentCellY*BLOCK+wallWidth+mRadius;
 							//System.out.println("top collision detected");
 						}
 					}
 					
 					//is there a bottom wall?
-					if (maze[currentCellX][currentCellY].walls[SOUTH])
+					if (maze[currentCellX][currentCellY].walls[Maze.Wall.SOUTH])
 					{
-						//dont move down
-						if (mBallPos.y+radius >= currentCellY*BLOCK+BLOCK)
+						//don't move down
+						if (mBallPos.y+mRadius >= currentCellY*BLOCK+BLOCK)
 						{
-							mBallPos.y = currentCellY*BLOCK+BLOCK-radius;
+							mBallPos.y = currentCellY*BLOCK+BLOCK-mRadius;
 							//System.out.println("bottom collision detected");
 						}
 					}
 
 					//is there a left wall?
-					if (maze[currentCellX][currentCellY].walls[WEST])
+					if (maze[currentCellX][currentCellY].walls[Maze.Wall.WEST])
 					{
-						//dont go over left wall
-						if (mBallPos.x-radius < currentCellX*BLOCK+wallWidth)
+						//don't go over left wall
+						if (mBallPos.x-mRadius < currentCellX*BLOCK+wallWidth)
 						{
-							mBallPos.x = currentCellX*BLOCK+wallWidth+radius;
+							mBallPos.x = currentCellX*BLOCK+wallWidth+mRadius;
 							//System.out.println("left collision detected");
 						}
 					}
 
 					//is there a right wall?
-					if (maze[currentCellX][currentCellY].walls[EAST])
+					if (maze[currentCellX][currentCellY].walls[Maze.Wall.EAST])
 					{
-						//dont move right
-						if (mBallPos.x+radius >= currentCellX*BLOCK+BLOCK)
+						//don't move right
+						if (mBallPos.x+mRadius >= currentCellX*BLOCK+BLOCK)
 						{
-							mBallPos.x = currentCellX*BLOCK+BLOCK-radius;
+							mBallPos.x = currentCellX*BLOCK+BLOCK-mRadius;
 							//System.out.println("right collision detected");
 						}
 
@@ -533,19 +257,19 @@ public class GameActivity extends Activity
 
 					//is there neither top nor left wall? AND is there a top left overlap?
 					//does the top cell have a left wall OR does the left cell have a top wall?
-					if((!maze[currentCellX][currentCellY].walls[NORTH]) && (!maze[currentCellX][currentCellY].walls[WEST])
-							&&(maze[currentCellX][currentCellY-1].walls[WEST] || maze[currentCellX-1][currentCellY].walls[NORTH]))
+					if((!maze[currentCellX][currentCellY].walls[Maze.Wall.NORTH]) && (!maze[currentCellX][currentCellY].walls[Maze.Wall.WEST])
+							&&(maze[currentCellX][currentCellY-1].walls[Maze.Wall.WEST] || maze[currentCellX-1][currentCellY].walls[Maze.Wall.NORTH]))
 					{
 						if (mBallPos.x>((currentCellX*BLOCK)+wallWidth) && mBallPos.y<((currentCellY*BLOCK)+wallWidth))//y simple collision
 						{
-							if (mBallPos.x-radius<currentCellX*BLOCK+wallWidth)
+							if (mBallPos.x-mRadius<currentCellX*BLOCK+wallWidth)
 							{
-								mBallPos.x=currentCellX*BLOCK+wallWidth+radius;
+								mBallPos.x=currentCellX*BLOCK+wallWidth+mRadius;
 							}
 						}
-						else if(mBallPos.y>((currentCellY*BLOCK)+wallWidth) && mBallPos.y-radius < ((currentCellY*BLOCK)+wallWidth))
+						else if(mBallPos.y>((currentCellY*BLOCK)+wallWidth) && mBallPos.y-mRadius < ((currentCellY*BLOCK)+wallWidth))
 						{
-							double y = Math.sqrt((Math.pow(radius, 2) - Math.pow((mBallPos.x-((currentCellX*BLOCK)+wallWidth)),2)));
+							double y = Math.sqrt((Math.pow(mRadius, 2) - Math.pow((mBallPos.x-((currentCellX*BLOCK)+wallWidth)),2)));
 							if (mBallPos.y-y<currentCellY*BLOCK+wallWidth)
 							{
 								mBallPos.y=(float) ((currentCellY*BLOCK+wallWidth)+y);
@@ -554,15 +278,15 @@ public class GameActivity extends Activity
 
 						if (mBallPos.y>((currentCellY*BLOCK)+wallWidth) && mBallPos.x<((currentCellX*BLOCK)+wallWidth))//x simple collision
 						{
-							if (mBallPos.y-radius<currentCellY*BLOCK+wallWidth)
+							if (mBallPos.y-mRadius<currentCellY*BLOCK+wallWidth)
 							{
-								mBallPos.y=currentCellY*BLOCK+wallWidth+radius;
+								mBallPos.y=currentCellY*BLOCK+wallWidth+mRadius;
 							}
 						}
 
-						else if (mBallPos.x>((currentCellX*BLOCK)+wallWidth) && mBallPos.x-radius < ((currentCellX*BLOCK)+wallWidth))
+						else if (mBallPos.x>((currentCellX*BLOCK)+wallWidth) && mBallPos.x-mRadius < ((currentCellX*BLOCK)+wallWidth))
 						{
-							double x = Math.sqrt((Math.pow(radius, 2) - Math.pow((mBallPos.y-((currentCellY*BLOCK)+wallWidth)),2)));
+							double x = Math.sqrt((Math.pow(mRadius, 2) - Math.pow((mBallPos.y-((currentCellY*BLOCK)+wallWidth)),2)));
 							if (mBallPos.x-x<(currentCellX*BLOCK)+wallWidth)
 							{
 								mBallPos.x=(float) ((currentCellX*BLOCK+wallWidth)+x);
@@ -572,19 +296,19 @@ public class GameActivity extends Activity
 
 					//is there neither a top nor right wall? AND is there a top right overlap?
 					//does the top right cell have a left wall OR does the right cell have a top wall?
-					if((!maze[currentCellX][currentCellY].walls[NORTH] && !maze[currentCellX][currentCellY].walls[EAST]) 
-							&& (maze[currentCellX+1][currentCellY-1].walls[WEST] || maze[currentCellX+1][currentCellY].walls[NORTH]))
+					if((!maze[currentCellX][currentCellY].walls[Maze.Wall.NORTH] && !maze[currentCellX][currentCellY].walls[Maze.Wall.EAST]) 
+							&& (maze[currentCellX+1][currentCellY-1].walls[Maze.Wall.WEST] || maze[currentCellX+1][currentCellY].walls[Maze.Wall.NORTH]))
 					{
 						if (mBallPos.y<currentCellY*BLOCK+wallWidth)
 						{
-							if (mBallPos.x+radius>(currentCellX+1)*BLOCK)
+							if (mBallPos.x+mRadius>(currentCellX+1)*BLOCK)
 							{
-								mBallPos.x = (currentCellX+1)*BLOCK-radius;
+								mBallPos.x = (currentCellX+1)*BLOCK-mRadius;
 							}
 						}
-						else if (mBallPos.y>currentCellY*BLOCK+wallWidth && mBallPos.y-radius<currentCellY*BLOCK+wallWidth)
+						else if (mBallPos.y>currentCellY*BLOCK+wallWidth && mBallPos.y-mRadius<currentCellY*BLOCK+wallWidth)
 						{
-							double x = Math.sqrt(Math.pow(radius, 2) - Math.pow(((currentCellY*BLOCK+wallWidth)-mBallPos.y),2));
+							double x = Math.sqrt(Math.pow(mRadius, 2) - Math.pow(((currentCellY*BLOCK+wallWidth)-mBallPos.y),2));
 							if ((mBallPos.x+x)>((currentCellX+1)*BLOCK))
 							{
 								mBallPos.x=(float) (((currentCellX+1)*BLOCK)-x);
@@ -594,19 +318,19 @@ public class GameActivity extends Activity
 
 					//is there neither a bottom nor left wall? AND is there a bottom left overlap?
 					//does the bottom left cell have a top wall OR does the bottom cell have a left wall?
-					if((!maze[currentCellX][currentCellY].walls[SOUTH]) && (!maze[currentCellX][currentCellY].walls[WEST])
-							&& (maze[currentCellX][currentCellY+1].walls[WEST] || maze[currentCellX-1][currentCellY+1].walls[NORTH]))
+					if((!maze[currentCellX][currentCellY].walls[Maze.Wall.SOUTH]) && (!maze[currentCellX][currentCellY].walls[Maze.Wall.WEST])
+							&& (maze[currentCellX][currentCellY+1].walls[Maze.Wall.WEST] || maze[currentCellX-1][currentCellY+1].walls[Maze.Wall.NORTH]))
 					{
 						if (mBallPos.x<(currentCellX*BLOCK)+wallWidth)
 						{
-							if (mBallPos.y+radius>(currentCellY+1)*BLOCK)
+							if (mBallPos.y+mRadius>(currentCellY+1)*BLOCK)
 							{
-								mBallPos.y = (currentCellY+1)*BLOCK-radius;
+								mBallPos.y = (currentCellY+1)*BLOCK-mRadius;
 							}
 						}
-						else if (mBallPos.x>currentCellX*BLOCK+wallWidth && mBallPos.x-radius<currentCellX*BLOCK+wallWidth)
+						else if (mBallPos.x>currentCellX*BLOCK+wallWidth && mBallPos.x-mRadius<currentCellX*BLOCK+wallWidth)
 						{
-							double y = Math.sqrt(Math.pow(radius, 2) - Math.pow(((currentCellX*BLOCK+wallWidth)-mBallPos.x),2));
+							double y = Math.sqrt(Math.pow(mRadius, 2) - Math.pow(((currentCellX*BLOCK+wallWidth)-mBallPos.x),2));
 							if ((mBallPos.y+y)>((currentCellY+1)*BLOCK))
 							{
 								mBallPos.y=(float) (((currentCellY+1)*BLOCK)-y);
@@ -616,21 +340,21 @@ public class GameActivity extends Activity
 
 					//is there neither a right nor bottom wall? AND is there a bottom right overlap?
 					//does the bottom right cell have a top wall OR a left wall?
-					if((!maze[currentCellX][currentCellY].walls[EAST]) && (!maze[currentCellX][currentCellY].walls[SOUTH])
-							&&  (maze[currentCellX+1][currentCellY+1].walls[WEST] 
-							|| maze[currentCellX+1][currentCellY+1].walls[NORTH] ))
+					if((!maze[currentCellX][currentCellY].walls[Maze.Wall.EAST]) && (!maze[currentCellX][currentCellY].walls[Maze.Wall.SOUTH])
+							&&  (maze[currentCellX+1][currentCellY+1].walls[Maze.Wall.WEST] 
+							|| maze[currentCellX+1][currentCellY+1].walls[Maze.Wall.NORTH] ))
 					{
-						if (mBallPos.y+radius>(currentCellY+1)*BLOCK)//collide with x
+						if (mBallPos.y+mRadius>(currentCellY+1)*BLOCK)//collide with x
 						{
-							double x = Math.sqrt(Math.pow(radius, 2) - Math.pow((((currentCellY+1)*BLOCK)-mBallPos.y),2));
+							double x = Math.sqrt(Math.pow(mRadius, 2) - Math.pow((((currentCellY+1)*BLOCK)-mBallPos.y),2));
 							if ((mBallPos.x+x)>((currentCellX+1)*BLOCK))
 							{
 								mBallPos.x=(float) (((currentCellX+1)*BLOCK)-x);
 							}
 						}
-						else if (mBallPos.x+radius>(currentCellX+1)*BLOCK)//collide with y
+						else if (mBallPos.x+mRadius>(currentCellX+1)*BLOCK)//collide with y
 						{
-							double y = Math.sqrt(Math.pow(radius, 2) - Math.pow((((currentCellX+1)*BLOCK)-mBallPos.x),2));
+							double y = Math.sqrt(Math.pow(mRadius, 2) - Math.pow((((currentCellX+1)*BLOCK)-mBallPos.x),2));
 							if ((mBallPos.y+y)>((currentCellY+1)*BLOCK))
 							{
 								mBallPos.y=(float) (((currentCellY+1)*BLOCK)-y);
@@ -646,58 +370,42 @@ public class GameActivity extends Activity
 
 					if (currentCellX == 0 && currentCellY == 0)
 					{				
-						if (mBallPos.x-radius <= wallWidth)
+						if (mBallPos.x-mRadius <= wallWidth)
 						{
 
-							if (first_cell_exited)
+							if (mFirstCellExited)
 							{
 								mazeStartToast.post(new Runnable()
 								{
 									public void run()
 									{
-										Toast.makeText(main, "Can't go back, they'll find you. Must go deeper...", Toast.LENGTH_SHORT).show();
+										Toast.makeText(game, "Can't go back, they'll find you. Must go deeper...", Toast.LENGTH_SHORT).show();
 									}
 								});
-								first_cell_exited = false;
+								mFirstCellExited = false;
 							}
 						}
 					}
 
 					if (currentCellX != 0 || currentCellY != 0)
 					{				
-						first_cell_exited = true;
+						mFirstCellExited = true;
 					}
 
-					if (currentCellX == MWIDTH-1 && currentCellY == MHEIGHT-1)
+					Maze.Cell cell = Maze.getInstance().getExitCell();
+					
+					if (currentCellX == cell.x && currentCellY == cell.y)
 					{
 						//Next Level
-
-						openNextMaze = new Intent(GameActivity.this, NextMaze.class);
-						startActivity(openNextMaze);
-						
-						
-
-						/*if (!level_complete)
-					{
-						mazeFinishToast.post(new Runnable(){
-							public void run()
-							{
-								Toast.makeText(main, "You go deeper into the maze...", Toast.LENGTH_SHORT).show();
-							}
-						});
-						level_complete = true;
-
-						//TODO
-					}*/
+						Intent LevelAdvance = new Intent(GameActivity.this, LevelAdvanceActivity.class);
+						startActivity(LevelAdvance);
 					}
 					
-				
-
 					//collision with sides of screen in case of no wall glitch
-					if ((mBallPos.x + radius) > mScrWidth) mBallPos.x=mScrWidth-radius;
-					if ((mBallPos.y + radius) > mScrHeight) mBallPos.y=mScrHeight-radius;
-					if ((mBallPos.x - radius) < 0) mBallPos.x=0+radius;
-					if ((mBallPos.y - radius) < 0) mBallPos.y=0+radius;
+					if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
+					if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
+					if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
+					if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
 
 
 				//END OF COLLISION DETECTION

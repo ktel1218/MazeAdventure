@@ -6,8 +6,6 @@ import android.content.SharedPreferences.Editor;
 import android.content.res.Resources;
 import android.preference.PreferenceManager;
 
-
-
 public class GameSettings {
 	private final int LEVEL_ZERO = 0;
 	
@@ -42,5 +40,12 @@ public class GameSettings {
 	    Editor e = mSharedPrefs.edit();
 	    e.putInt("level", level);
 	    e.commit();		
+	}
+	public void incrementLevel() {
+		setLevel(getLevel() + 1);
+	}
+	
+	public int BLOCK() {
+		return (60 + getLevel() * 2);
 	}
 }
