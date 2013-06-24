@@ -13,31 +13,50 @@ import android.widget.Button;
 
 public class MainActivity extends Activity {
 
-	//public static boolean newGame = true;
-	//public static boolean level_complete = false;
-
-
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
-		requestWindowFeature(Window.FEATURE_NO_TITLE); //hide title bar
+	  //hide title bar
+		requestWindowFeature(Window.FEATURE_NO_TITLE); 
 		//set app to full screen and keep screen on 
-		getWindow().setFlags(0xFFFFFFFF,
-				LayoutParams.FLAG_FULLSCREEN);
+		getWindow().setFlags(0xFFFFFFFF, LayoutParams.FLAG_FULLSCREEN);
+		
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
 
 		Button next = (Button) findViewById(R.id.NEW_GAME);
 		next.setOnClickListener(new View.OnClickListener() {
-			public void onClick(View view) {
-				
-				Intent startGame = new Intent(MainActivity.this, GameActivity.class);
-				startGame.putExtra("blockSize", 120);
-				startActivityForResult(startGame, 1);
+			
+			@Override
+			public void onClick(View v) {
+				GameSettings.getInstance(getApplicationContext()).resetNew();
+				startGame();
+			}
+		});
+		
+		Button resume = (Button) findViewById(R.id.RESUME_GAME);
+		
+		int visibility = settings().isResumable() ? View.VISIBLE : View.GONE;
+		resume.setVisibility(visibility);
+		
+		resume.setOnClickListener(new View.OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				startGame();
 			}
 		});
 		
 	}
 
+	private GameSettings settings() {
+		return GameSettings.getInstance(this);
+	}
+	
+	private void startGame() {
+		Intent startGame = new Intent(MainActivity.this, GameActivity.class);
+		startActivityForResult(startGame, 1);		
+	}
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
