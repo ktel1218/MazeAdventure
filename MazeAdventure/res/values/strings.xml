@@ -6,5 +6,6 @@
     <string name="title_activity_game">GameActivity</string>
     <string name="title">Don\'t Go Into the Maze</string>
     <string name="start">Go into the maze</string>
+    <string name="resume">Resume your adventure</string>
 
 </resources>
