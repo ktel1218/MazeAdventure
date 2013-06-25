@@ -14,6 +14,8 @@ public class MazeView extends View
 	private Paint backPaint2 = new Paint (Paint.ANTI_ALIAS_FLAG);	// background color 2 for fade
 	private Paint wallPaint = new Paint(Color.BLACK);
 	
+	private Maze theMaze;
+	
 	public MazeView(Context context) { 
 		super(context);
 		
@@ -28,10 +30,15 @@ public class MazeView extends View
 		//setBackgroundResource(R.drawable.background);			
 	}
 
-	// DRAW MAZE
+	public void init(Maze maze) {
+		theMaze = maze;	
+	}
+	
 	public void onDraw(Canvas g)
 	{	
-		Maze theMaze = Maze.getInstance();
+		super.onDraw(g);
+		
+		if (theMaze == null) return;
 		
 		g.drawRect(theMaze.getRect(), backPaint1);	
 		

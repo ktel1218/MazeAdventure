@@ -3,7 +3,7 @@ package com.katielefevre.mazeadventure;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.Editor;
-import android.content.res.Resources;
+//import android.content.res.Resources;
 import android.preference.PreferenceManager;
 
 public class GameSettings {
@@ -11,7 +11,7 @@ public class GameSettings {
 	
 	private static GameSettings Instance = null;
 	private SharedPreferences mSharedPrefs;
-	private Resources mResources;
+	//private Resources mResources;
 	
 	private GameSettings() {}
 	
@@ -22,7 +22,7 @@ public class GameSettings {
 			Context appContext = context.getApplicationContext();
 	    //PreferenceManager.setDefaultValues(appContext, R.xml.settings, false); 
 	    Instance.mSharedPrefs = PreferenceManager.getDefaultSharedPreferences(appContext);
-	    Instance.mResources = appContext.getResources();
+	    //Instance.mResources = appContext.getResources();
 		}
 		return Instance;
 	}

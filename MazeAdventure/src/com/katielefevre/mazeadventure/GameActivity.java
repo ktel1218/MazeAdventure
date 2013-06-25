@@ -5,17 +5,16 @@ import java.util.TimerTask;
 
 import com.katielefevre.mazeadventure.R;
 
-import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.PointF;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.Display;
@@ -26,33 +25,15 @@ import android.widget.Toast;
 
 public class GameActivity extends BaseActivity 
 {    
-	private BallView mBallView = null;
+	private MazeBallView mBallView = null;
 	private Handler RedrawHandler = new Handler();
 	
-	private long gameTimer = 0;
 	private Timer mTmr = null;
 	private TimerTask mTsk = null;
-	//private TimerView mTimerView = null;
-	
-	private String toast_stringStart=" @";
-	private Handler mazeStartToast;
 
-	private String toast_stringFinish=" @";
-	private Handler mazeFinishToast;
-
-	private GameActivity game;
-
-//	static boolean level_complete = false;
 	boolean mFirstCellExited = false;
 
 	private int mScrWidth, mScrHeight;
-	
-	//
-	// Ball variables - move to Maze
-	private final float RADIUS_FACTOR = (float) 0.25;
-	private float mRadius; 
-	private android.graphics.PointF mBallPos, mBallSpd;
-	//
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -62,12 +43,7 @@ public class GameActivity extends BaseActivity
 		getWindow().getDecorView().setBackgroundColor(Color.BLACK);
 		final FrameLayout mainView = 
 				(android.widget.FrameLayout)findViewById(R.id.main_view);
-
-		mazeStartToast = new Handler(); 
-		mazeFinishToast = new Handler(); 
-
-		game = this;
-
+		
 		//get screen dimensions
 		Display display = getWindowManager().getDefaultDisplay();  
 
@@ -79,34 +55,18 @@ public class GameActivity extends BaseActivity
 		mScrWidth = size.x;
 		mScrHeight = size.y;
 		
-		mBallPos = new android.graphics.PointF();
-		mBallSpd = new android.graphics.PointF();
-		
-		// set ball radius as factor of BLOCK size for scaling purposes
-		mRadius = (RADIUS_FACTOR * BLOCK);
-
-		//create variables for ball position and speed
-		//
-		// STARTS BALL IN CENTER OF MAZE
-		//mBallPos.x = mScrWidth/2;  
-		//mBallPos.y = mScrHeight/2; 
-		//
-		// STARTS BALL IN UPPER LEFT OF MAZE
-		mBallPos.x=0; 
-		mBallPos.y=0;
-		//
-		// SPEED
-		mBallSpd.x = 0;
-		mBallSpd.y = 0;
-
 		int MWIDTH = mScrWidth/BLOCK;
 		mainView.setX((mScrWidth-(MWIDTH*BLOCK))/4);
 		
-		Maze.BuildMaze(mScrWidth, mScrHeight, BLOCK);
-		mainView.addView(new MazeView(this));
+		final Maze theMaze = Maze.BuildMaze(mScrWidth, mScrHeight, BLOCK);
+		MazeView maze_view = new MazeView(this);
+		maze_view.init(theMaze);
+		mainView.addView(maze_view);
 
-		mBallView = new BallView(this, mBallPos.x, mBallPos.y, mRadius);
+		mBallView = new MazeBallView(this);
+		mBallView.init(theMaze.Ball);
 		mainView.addView(mBallView); 	//add ball to main screen
+		
 		mBallView.invalidate(); 		//call onDraw in BallView
 
 		/*//create timer
@@ -117,35 +77,34 @@ public class GameActivity extends BaseActivity
 
 		//listener for accelerometer, use anonymous class for simplicity
 		((SensorManager)getSystemService(Context.SENSOR_SERVICE)).registerListener(
-				new SensorEventListener() {    
+				new SensorEventListener() 
+				{    
 					@Override  
 					public void onSensorChanged(SensorEvent event) {  
 						//set ball speed based on phone tilt (ignore Z axis)
-						mBallSpd.x = -event.values[0];
-						mBallSpd.y = event.values[1];
+						theMaze.Ball.getBallSpd().x = -event.values[0];
+						theMaze.Ball.getBallSpd().y = event.values[1];
 						//timer event will redraw ball
 					}
+					
 					@Override  
-					public void onAccuracyChanged(Sensor sensor, int accuracy) {} //ignore
+					public void onAccuracyChanged(Sensor sensor, int accuracy) { /* ignore */ } 
 				},
 				((SensorManager)getSystemService(Context.SENSOR_SERVICE))
 				               .getSensorList(Sensor.TYPE_ACCELEROMETER).get(0),   
 				                              SensorManager.SENSOR_DELAY_NORMAL);
+		
 		//listener for touch event 
-		mainView.setOnTouchListener(new android.view.View.OnTouchListener() {
-			@Override
-			public boolean onTouch(android.view.View v, android.view.MotionEvent e) {
-				//set ball position based on screen touch
-				//mBallPos.x = e.getX();
-				//mBallPos.y = e.getY();
-				//timer event will redraw ball
-
-				//PAUSE
-
-				return true;
-			}}); 
-	}
-	//OnCreate
+		mainView.setOnTouchListener(
+				new android.view.View.OnTouchListener() 
+				{
+					@Override
+					public boolean onTouch(android.view.View v, android.view.MotionEvent e) {
+						return true;
+					}
+				}); 
+	} //OnCreate
+	
 
 	//listener for menu button on phone
 	@Override
@@ -169,19 +128,32 @@ public class GameActivity extends BaseActivity
 	
 	//For state flow see http://developer.android.com/reference/android/app/Activity.html
 	@Override
-	public void onPause() //application moved to background, stop background threads
+	public void onPause() 
 	{
 		super.onPause();
-		mTmr.cancel(); //kill\release timer (our only background thread)
+		
+		//application moved to background, 
+		// stop background threads
+		
+		//kill & release timer 
+		// (our only background thread)
+		mTmr.cancel(); 
 		mTmr = null;
 		mTsk = null;
+		
 		finish();
 	}
 
 	@Override
-	public void onResume() //application moved to foreground (also occurs at application startup)
+	public void onResume() 
 	{
-		//create timer to move ball to new position
+		super.onResume();
+		
+		//application moved to foreground 
+		// (also occurs at application startup)
+		//
+		// create timer to move ball to new position
+		//
 		mTmr = new Timer(); 
 		mTsk = new TimerTask() {
 			@Override
@@ -195,6 +167,10 @@ public class GameActivity extends BaseActivity
 				//  a log cat viewer will be needed on the device
 				//android.util.Log.d("TiltBall","Timer Hit - " + mBallPos.x + ":" + mBallPos.y);
 
+				PointF mBallPos = Maze.getInstance().Ball.getBallPos();
+				PointF mBallSpd = Maze.getInstance().Ball.getBallSpd();
+				float mRadius = Maze.getInstance().Ball.getRadius();
+				
 				//move ball based on current speed
 				mBallPos.x += mBallSpd.x*1.1;
 				mBallPos.y += mBallSpd.y*1.1;
@@ -202,9 +178,6 @@ public class GameActivity extends BaseActivity
 				//get the balls square/maze cell
 				int currentCellX =(int)(mBallPos.x) / BLOCK;
 				int currentCellY =(int)(mBallPos.y) / BLOCK;
-
-				//UI timer
-				gameTimer ++;
 
 				//COLLISION DETECTION
 
@@ -365,69 +338,66 @@ public class GameActivity extends BaseActivity
 					}
 
 				}
-				catch(ArrayIndexOutOfBoundsException e){}
+				catch(ArrayIndexOutOfBoundsException e) {
+					
+				}
 
 				//CATCH, Array out of bounds
 				///////
 
-					if (currentCellX == 0 && currentCellY == 0)
-					{				
-						if (mBallPos.x-mRadius <= wallWidth)
+				if (currentCellX == 0 && currentCellY == 0)
+				{				
+					if (mBallPos.x-mRadius <= wallWidth)
+					{
+						if (mFirstCellExited)
 						{
-
-							if (mFirstCellExited)
+							RedrawHandler.post(new Runnable()
 							{
-								mazeStartToast.post(new Runnable()
+								public void run()
 								{
-									public void run()
-									{
-										Toast.makeText(game, "Can't go back, they'll find you. Must go deeper...", Toast.LENGTH_SHORT).show();
-									}
-								});
-								mFirstCellExited = false;
-							}
+									Toast.makeText(getApplicationContext(), "Can't go back, they will find you. Must go deeper...", Toast.LENGTH_SHORT).show();
+								}
+							});
+							mFirstCellExited = false;
 						}
 					}
+				}
 
-					if (currentCellX != 0 || currentCellY != 0)
-					{				
-						mFirstCellExited = true;
-					}
+				if (currentCellX != 0 || currentCellY != 0)
+				{				
+					mFirstCellExited = true;
+				}
 
-					Maze.Cell cell = Maze.getInstance().getExitCell();
-					
-					if (currentCellX == cell.x && currentCellY == cell.y)
-					{
-						//Next Level
-						Intent LevelAdvance = new Intent(GameActivity.this, LevelAdvanceActivity.class);
-						startActivity(LevelAdvance);
-					}
-					
-					//collision with sides of screen in case of no wall glitch
-					if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
-					if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
-					if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
-					if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
-
+				Maze.Cell cell = Maze.getInstance().getExitCell();
+				
+				if (currentCellX == cell.x && currentCellY == cell.y)
+				{
+					//Next Level
+					Intent LevelAdvance = new Intent(GameActivity.this, LevelAdvanceActivity.class);
+					startActivity(LevelAdvance);
+				}
+				
+				//collision with sides of screen in case of no wall glitch
+				if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
+				if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
+				if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
+				if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
 
 				//END OF COLLISION DETECTION
 
-				//update ball class instance
-				mBallView.x = mBallPos.x;
-				mBallView.y = mBallPos.y;
-
-				//redraw ball. Must run in background thread to prevent thread lock.
-				RedrawHandler.post(new Runnable() {
+				//redraw ball. Must run in background 
+			    //  thread to prevent thread lock.
+				RedrawHandler.post(new Runnable() 
+				{
 					@Override
 					public void run() {    
 						mBallView.invalidate();
-
-					}});
+					}
+				});
 
 			}}; // TimerTask
 
-			mTmr.schedule(mTsk,10,10); //start timer
-			super.onResume();
+			mTmr.schedule(mTsk, 10, 10); //start timer
 	} // onResume
 
 	//@Override

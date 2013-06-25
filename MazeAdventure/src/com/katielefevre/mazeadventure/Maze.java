@@ -23,6 +23,7 @@ public class Maze {
 			    new ArrayList<Maze.Cell>(); ;
 	
 	public Cell cells[][]; 
+	public MazeBall Ball; 
 	
 	// Singleton
 	private static Maze Instance = null;
@@ -70,6 +71,9 @@ public class Maze {
 		theMaze.YCellCount = (screenHeight / BLOCK);
 		
 		theMaze.buildMaze_Internal();
+		
+		theMaze.Ball = MazeBall.getInstance();
+		theMaze.Ball.init(block);
 		
 		return theMaze;
 	}
