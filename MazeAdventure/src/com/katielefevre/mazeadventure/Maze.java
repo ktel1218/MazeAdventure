@@ -1,7 +1,6 @@
 package com.katielefevre.mazeadventure;
 
 import java.util.ArrayList;
-import java.util.Random;
 
 import android.graphics.Point;
 import android.graphics.Rect;
@@ -93,8 +92,8 @@ public class Maze {
 		int yLastCell = YCellCount - 1;
 		
 		// Choose random starting block and add it to maze
-		int x = new Random().nextInt(XCellCount);
-		int y = new Random().nextInt(YCellCount);
+		int x = (int) (Math.random() * (XCellCount - 2) + 1);
+		int y = (int) (Math.random() * (YCellCount - 2) + 1);
 		cells[x][y].status = Cell.ADDED;
 		
 		addAdjacentCells(x, y);
@@ -130,7 +129,7 @@ public class Maze {
 				dir[numdir++] = Wall.SOUTH;
 			}
 
-			int randomDirection = dir[new Random().nextInt(numdir)];
+			int randomDirection = dir[(int)(Math.random() * numdir)];
 
 			// And remove the wall between the two 
 			//lefts
