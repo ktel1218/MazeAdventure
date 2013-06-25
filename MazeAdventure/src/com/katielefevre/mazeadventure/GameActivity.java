@@ -434,9 +434,9 @@ public class GameActivity extends BaseActivity
 	/*public void onDestroy() //main thread stopped
 	{
 		super.onDestroy();
-		//wait for threads to exit before clearing app
+		//wait for threads to exit before clearing application
 		System.runFinalizersOnExit(true); //ASK DR BLACK ABOUT ALTERNATIVE
-		//remove app from memory
+		//remove application from memory
 		android.os.Process.killProcess(android.os.Process.myPid());  
 	}*/
 	//listener for config change. 
