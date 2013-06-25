@@ -18,7 +18,10 @@ public class Maze {
 	private int XCellCount;
 	private int YCellCount;
 	
-	public Cell cells[][];
+	private ArrayList<Cell> ActiveCellList = 
+			    new ArrayList<Maze.Cell>(); ;
+	
+	public Cell cells[][]; 
 	
 	// Singleton
 	private static Maze Instance = null;
@@ -83,7 +86,7 @@ public class Maze {
 			}
 		}
 		
-		ArrayList<Cell> blockList = new ArrayList<Maze.Cell>(); 
+		ActiveCellList.clear();
 		
 		int xLastCell = XCellCount - 1;
 		int yLastCell = YCellCount - 1;
@@ -91,17 +94,17 @@ public class Maze {
 		// Choose random starting block and add it to maze
 		int x = (int) (Math.random() * (XCellCount - 2) + 1);
 		int y = (int) (Math.random() * (YCellCount - 2) + 1);
-		cells[x][y].walls[Wall.ADDED] = true;
+		cells[x][y].status = Cell.ADDED;
 		
-		addAdjacentCells(x, y, blockList);
+		addAdjacentCells(x, y);
 
-		while (blockList.size() > 0)
+		while (ActiveCellList.size() > 0)
 		{
 			//choose a random block from block list
-			int randomBlock = (int) (Math.random() * blockList.size());
-			
-			x = blockList.get(randomBlock).x;
-			y = blockList.get(randomBlock).y;
+			int randomBlock = (int) (Math.random() * ActiveCellList.size());
+			Cell randomCell = ActiveCellList.get(randomBlock);
+			x = randomCell.x;
+			y = randomCell.y;
 			
 			int[] dir = new int[4];
 			int numdir = 0;
@@ -110,24 +113,23 @@ public class Maze {
 			// if cell exists, note it and it's direction
 
 			// left
-			if (x > 0 && cells[x - 1][y].walls[Wall.ADDED]) {
+			if (x > 0 && cells[x - 1][y].isInMaze()) {
 				dir[numdir++] = Wall.WEST;
 			}
 			// right
-			if (x < xLastCell && cells[x + 1][y].walls[Wall.ADDED]) {
+			if (x < xLastCell && cells[x + 1][y].isInMaze()) {
 				dir[numdir++] = Wall.EAST;
 			}
 			// up
-			if (y > 0 && cells[x][y - 1].walls[Wall.ADDED]) {
+			if (y > 0 && cells[x][y - 1].isInMaze()) {
 				dir[numdir++] = Wall.NORTH;
 			}
 			// down
-			if (y < yLastCell && cells[x][y + 1].walls[Wall.ADDED]) {
+			if (y < yLastCell && cells[x][y + 1].isInMaze()) {
 				dir[numdir++] = Wall.SOUTH;
 			}
 
-			int randomDirection = (int)(Math.random() * numdir);
-			randomDirection=dir[randomDirection];
+			int randomDirection = dir[(int)(Math.random() * numdir)];
 
 			// And remove the wall between the two 
 			//lefts
@@ -151,12 +153,12 @@ public class Maze {
 				cells[x][y + 1].walls[Wall.NORTH] = false;
 			}
 
-			//set that block as "in the maze"
-			cells[x][y].walls[Wall.ADDED] = true;
+			//set the block as "in the maze"
+			cells[x][y].status = Cell.ADDED;
 
 			// remove it from the block list
-			blockList.remove(blockList.get(randomBlock));
-			addAdjacentCells(x, y, blockList);
+			ActiveCellList.remove(randomCell);
+			addAdjacentCells(x, y);
 		}
 		
 		//remove top left and bottom right edges
@@ -164,15 +166,20 @@ public class Maze {
 		cells[xLastCell][yLastCell].walls[Wall.EAST] = false;
 	}
 
-	private void addAdjacentCells(int x, int y, ArrayList<Cell> blockList) {
+	private void addAdjacentCells(int x, int y) {
 		int xLastCell = XCellCount - 1;
 		int yLastCell = YCellCount - 1;
 		
-		// Add all adjacent blocks that aren't in the maze in the block list
-		if (x > 0 && !cells[x - 1][y].walls[Wall.ADDED]) blockList.add (new Cell(x-1, y));
-		if (x < xLastCell && !cells[x + 1][y].walls[Wall.ADDED]) blockList.add (new Cell(x+1, y));
-		if (y > 0 && !cells[x][y - 1].walls[Wall.ADDED]) blockList.add(new Cell(x, y-1));
-		if (y < yLastCell && !cells[x][y + 1].walls[Wall.ADDED]) blockList.add(new Cell(x, y+1));	
+		// Add all inactive adjacent blocks to block list
+		if (x > 0 && cells[x - 1][y].isInactive()) addToActiveCellList(x-1, y);
+		if (x < xLastCell && cells[x + 1][y].isInactive()) addToActiveCellList(x+1, y);
+		if (y > 0 && cells[x][y - 1].isInactive()) addToActiveCellList(x, y-1);
+		if (y < yLastCell && cells[x][y + 1].isInactive()) addToActiveCellList(x, y+1);	
+	}
+	
+	private void addToActiveCellList(int x, int y) {
+		cells[x][y].status = Cell.ACTIVE;
+		ActiveCellList.add(cells[x][y]);
 	}
 	
 	public static Rect getWallRect(Cell cell, Wall wall) {
@@ -234,12 +241,22 @@ public class Maze {
 	{ 
 		int x, y;
 		
-		//NORTH = 0, SOUTH = 1, WEST = 2, EAST = 3, ADDED = 4
-		boolean[] walls = { true, true, true, true, false };
+		private static final int INACTIVE = 0, ACTIVE = 1, ADDED = 2;
+		private int status = INACTIVE;
+		
+		boolean[] walls = { true, true, true, true };
 		
 		private Cell(int x, int y) {
 			this.x = x;
 			this.y = y;
+		}
+		
+		private boolean isInMaze() {
+			return (status == ADDED);
+		}
+		
+		private boolean isInactive() {
+			return (status == INACTIVE);
 		}
 		
 		public Point getCenter() {
@@ -261,13 +278,18 @@ public class Maze {
 		
 		public String printCell()
 		{
-			return " " + this.x + " " + walls[0] +" " + walls[1] + " " + walls[2] + " " + walls[3] + " " + walls[4];
+			return " " + this.x + " " + 
+					    status + " " + 
+		          walls[Wall.NORTH] + " " + 
+					    walls[Wall.EAST]  + " " + 
+		          walls[Wall.SOUTH] + " " + 
+					    walls[Wall.WEST] ;
 		}
 	}
 	
 	public static class Wall
 	{
-		public static final int NORTH = 0, SOUTH = 1, WEST = 2, EAST = 3, ADDED = 4;
+		public static final int NORTH = 0, SOUTH = 1, WEST = 2, EAST = 3;
 		
 		private int direction;
 		
