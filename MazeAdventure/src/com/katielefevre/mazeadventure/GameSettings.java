@@ -8,6 +8,7 @@ import android.preference.PreferenceManager;
 
 public class GameSettings {
 	private final int LEVEL_ZERO = 0;
+	private final int LEVEL_ONE = 1;
 	
 	private static GameSettings Instance = null;
 	private SharedPreferences mSharedPrefs;
