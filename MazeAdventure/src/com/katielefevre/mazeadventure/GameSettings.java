@@ -46,6 +46,7 @@ public class GameSettings {
 	}
 	
 	public int BLOCK() {
-		return (60 + getLevel() * 2);
+		int block = 120 - (4 * getLevel());
+		return (block < 1 ? 1 : block);
 	}
 }

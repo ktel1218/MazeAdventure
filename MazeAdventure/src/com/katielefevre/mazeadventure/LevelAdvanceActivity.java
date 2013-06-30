@@ -1,23 +1,18 @@
 package com.katielefevre.mazeadventure;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 import com.katielefevre.mazeadventure.R;
 
-import android.content.Intent;
-import android.media.MediaPlayer;
+//import android.media.MediaPlayer;
 import android.os.Bundle;
 
 public class LevelAdvanceActivity extends BaseActivity{
-	MediaPlayer ourSound;
-	
-	@Override
-	protected void onCreate(Bundle SavedInstanceState)
-	{
-		super.onCreate(SavedInstanceState);
-		setContentView(R.layout.next);
-		
-		GameSettings.getInstance(this).incrementLevel();
-		
-		/*//save sound
+
+	/*	private void playGong() {
+		//save sound
+		 * 	MediaPlayer ourSound;
 		ourSound = MediaPlayer.create(NextMaze.this, R.raw.gong);
 		
 		SharedPreferences getPrefs = PreferenceManager.getDefaultSharedPreferences(getBaseContext());
@@ -27,40 +22,42 @@ public class LevelAdvanceActivity extends BaseActivity{
 		{
 		
 		ourSound.start();
-		}*/
-		
-		
-		//initialize timer thread for splash screen
-		Thread timer = new Thread()
-		{
-			public void run()
-			{
-				try
-				{
-					sleep(2000);
-				}
-				catch(InterruptedException e)
-				{
-					e.printStackTrace();
-				}
-				finally
-				{
-					Intent maze = new Intent("com.katielefevre.mazeadventure.GAME");
-					startActivity(maze);
-				}
-			}
-		};
-		
-		//start timer
-		timer.start();
+		}
 	}
-
-	@Override
-	protected void onPause() {
-		// TODO Auto-generated method stub
-		super.onPause();
-		//ourSound.release();
+	*/
+	
+	public static final int LEVEL_ADVANCE_REQUEST = 1;
+  
+	private void levelUp() {
+		GameSettings.getInstance(this).incrementLevel();
+	}
+	
+	private void close() {
 		finish();
 	}
 	
+	private void startTimer() {
+		//initialize timer for splash screen
+		final Timer timer = new Timer();
+		TimerTask task = new TimerTask()
+		{
+			public void run()
+			{
+				timer.cancel();
+				close();
+			}
+		};
+		
+		timer.schedule(task, 2000);
+	}
+	
+	@Override
+	protected void onCreate(Bundle SavedInstanceState)
+	{
+		super.onCreate(SavedInstanceState);
+		setContentView(R.layout.next);
+		
+		levelUp();
+		startTimer();
+	}	
 }

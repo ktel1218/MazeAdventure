@@ -7,7 +7,6 @@ import com.katielefevre.mazeadventure.R;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Point;
 import android.graphics.PointF;
@@ -21,42 +20,74 @@ import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class GameActivity extends BaseActivity 
-{    
+{   
+	public final static int MAZE_REQUEST = 1;
+	public final static int MAZE_QUIT_RESULT = 1;
+	
 	private MazeBallView mBallView = null;
 	private Handler RedrawHandler = new Handler();
 	
 	private Timer mTmr = null;
-	private TimerTask mTsk = null;
 
 	boolean mFirstCellExited = false;
 
 	private int mScrWidth, mScrHeight;
-
+	
+	private void exitMaze() {
+		pauseMaze();
+		setResult(MAZE_QUIT_RESULT);
+		finish();
+	}
+	
+	private void pauseMaze() {
+		if (mTmr == null) return;
+		//application moved to background, 
+		// stop background threads
+		
+		//kill & release timer 
+		// (our only background thread)
+		mTmr.cancel(); 
+		mTmr = null;
+	}
+	
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_game);
 		
 		getWindow().getDecorView().setBackgroundColor(Color.BLACK);
-		final FrameLayout mainView = 
-				(android.widget.FrameLayout)findViewById(R.id.main_view);
 		
 		//get screen dimensions
 		Display display = getWindowManager().getDefaultDisplay();  
 
-		int BLOCK = GameSettings.getInstance(this).BLOCK();
-		
 		Point size = new Point();
 		display.getSize(size);
 		
 		mScrWidth = size.x;
 		mScrHeight = size.y;
 		
+		createMaze();
+	}
+	
+	private void startMaze() {
+		createMaze();
+	}
+	
+	private void createMaze() {
+		
+		int BLOCK = GameSettings.getInstance(this).BLOCK();
 		int MWIDTH = mScrWidth/BLOCK;
+		
+		final FrameLayout mainView = 
+				(android.widget.FrameLayout)findViewById(R.id.main_view);
+		
 		mainView.setX((mScrWidth-(MWIDTH*BLOCK))/4);
+		
+		mFirstCellExited = false;
 		
 		final Maze theMaze = Maze.BuildMaze(mScrWidth, mScrHeight, BLOCK);
 		MazeView maze_view = new MazeView(this);
@@ -67,8 +98,18 @@ public class GameActivity extends BaseActivity
 		mBallView.init(theMaze.Ball);
 		mainView.addView(mBallView); 	//add ball to main screen
 		
-		mBallView.invalidate(); 		//call onDraw in BallView
+		mBallView.invalidate(); 		  //call onDraw in BallView
 
+		//TODO - move this
+		StringBuilder sb = new StringBuilder();
+		sb.append("Level [");
+		sb.append(GameSettings.getInstance(this).getLevel());
+		sb.append("] Block [");
+		sb.append(BLOCK);
+		sb.append("]");
+		TextView levelView = (TextView) findViewById(R.id.levelView);
+		levelView.setText(sb.toString());
+		
 		/*//create timer
 		mTimerView = new TimerView(this);
 		mainView.addView(mTimerView); //add timer to main screen
@@ -103,59 +144,16 @@ public class GameActivity extends BaseActivity
 						return true;
 					}
 				}); 
-	} //OnCreate
-	
-
-	//listener for menu button on phone
-	@Override
-	public boolean onCreateOptionsMenu(Menu menu) 
-	{
-		menu.add("Exit"); //only one menu item
-		return super.onCreateOptionsMenu(menu);
-
-	}
-	//listener for menu item clicked
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) 
-	{
-		// Handle item selection    
-		if (item.getTitle() == "Exit") //user clicked Exit
-			//"I'll just rest here... for a moment."
-			//finishActivity(0); //will call onPause
-			finish();
-		return super.onOptionsItemSelected(item);    
 	}
 	
-	//For state flow see http://developer.android.com/reference/android/app/Activity.html
-	@Override
-	public void onPause() 
-	{
-		super.onPause();
-		
-		//application moved to background, 
-		// stop background threads
-		
-		//kill & release timer 
-		// (our only background thread)
-		mTmr.cancel(); 
-		mTmr = null;
-		mTsk = null;
-		
-		finish();
-	}
-
-	@Override
-	public void onResume() 
-	{
-		super.onResume();
-		
+	private void resumeMaze() {
 		//application moved to foreground 
 		// (also occurs at application startup)
 		//
 		// create timer to move ball to new position
 		//
 		mTmr = new Timer(); 
-		mTsk = new TimerTask() {
+		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
 
@@ -372,55 +370,80 @@ public class GameActivity extends BaseActivity
 				
 				if (currentCellX == cell.x && currentCellY == cell.y)
 				{
-					//Next Level
-					Intent LevelAdvance = new Intent(GameActivity.this, LevelAdvanceActivity.class);
-					startActivity(LevelAdvance);
-				}
-				
-				//collision with sides of screen in case of no wall glitch
-				if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
-				if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
-				if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
-				if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
-
-				//END OF COLLISION DETECTION
-
-				//redraw ball. Must run in background 
-			    //  thread to prevent thread lock.
-				RedrawHandler.post(new Runnable() 
+					completeMaze();
+				} 
+				else 
 				{
-					@Override
-					public void run() {    
-						mBallView.invalidate();
-					}
-				});
+				
+					//collision with sides of screen in case of no wall glitch
+					if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
+					if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
+					if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
+					if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
+	
+					//END OF COLLISION DETECTION
+	
+					//redraw ball. Must run in background 
+				    //  thread to prevent thread lock.
+					RedrawHandler.post(new Runnable() 
+					{
+						@Override
+						public void run() {    
+							mBallView.invalidate();
+						}
+					});
+				}
 
 			}}; // TimerTask
 
-			mTmr.schedule(mTsk, 10, 10); //start timer
-	} // onResume
-
-	//@Override
-	/*public void onDestroy() //main thread stopped
-	{
-		super.onDestroy();
-		//wait for threads to exit before clearing application
-		System.runFinalizersOnExit(true); //ASK DR BLACK ABOUT ALTERNATIVE
-		//remove application from memory
-		android.os.Process.killProcess(android.os.Process.myPid());  
-	}*/
-	//listener for config change. 
-	//This is called when user tilts phone enough to trigger landscape view
-	//we want our app to stay in portrait view, so bypass event 
-
-
-	//@Override 
-	public void onConfigurationChanged(Configuration newConfig)
-	{
-		super.onConfigurationChanged(newConfig);
+			mTmr.schedule(task, 10, 10); //start timer
 	}
-} 
+	
+	private void completeMaze() {
+		pauseMaze();
+		Intent levelAdvance = new Intent(GameActivity.this, LevelAdvanceActivity.class);
+		startActivityForResult(levelAdvance, LevelAdvanceActivity.LEVEL_ADVANCE_REQUEST);
+	}
+	
+	//listener for menu button on phone
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) 
+	{
+		super.onCreateOptionsMenu(menu);
+		menu.add("Exit"); //only one menu item
+		return true;
+	}
+	
+	//listener for menu item clicked
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) 
+	{
+		super.onOptionsItemSelected(item);  
+		if (item.getTitle() == "Exit") {
+			exitMaze();
+		}
+		return true;    
+	}
+	
+	@Override
+	protected void onActivityResult (int requestCode, int resultCode, Intent data) {
+		//Only one return path right now
+		startMaze();
+	}
+	
+	@Override
+	public void onPause() 
+	{
+		super.onPause();
+		pauseMaze();
+	}
 
-//TiltBallActivity
+	@Override
+	public void onResume() 
+	{
+		super.onResume();
+		resumeMaze();
+	} 
+} 
 
 
