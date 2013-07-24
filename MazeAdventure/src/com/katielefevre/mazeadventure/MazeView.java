@@ -78,7 +78,7 @@ public class MazeView extends View
 	private void drawBG(Canvas g)
 	{
 
-		int squaresize=15;
+		int squaresize = (int)(0.5 * Maze.WALL_WIDTH);
 		int width = theMaze.getWidth() / squaresize;   //45;
 		int height = theMaze.getHeight() / squaresize; //65;
 		
