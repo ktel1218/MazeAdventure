@@ -1,14 +1,16 @@
 package com.katielefevre.mazeadventure;
 
-import java.util.Timer;
-import java.util.TimerTask;
-
-import com.katielefevre.mazeadventure.R;
+import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.Bundle;
+import android.widget.VideoView;
 
 //import android.media.MediaPlayer;
-import android.os.Bundle;
 
 public class LevelAdvanceActivity extends BaseActivity{
+	
+	VideoView videoView;
+
 
 	/*	private void playGong() {
 		//save sound
@@ -36,21 +38,6 @@ public class LevelAdvanceActivity extends BaseActivity{
 		finish();
 	}
 	
-	private void startTimer() {
-		//initialize timer for splash screen
-		final Timer timer = new Timer();
-		TimerTask task = new TimerTask()
-		{
-			public void run()
-			{
-				timer.cancel();
-				close();
-			}
-		};
-		
-		timer.schedule(task, 2000);
-	}
-	
 	@Override
 	protected void onCreate(Bundle SavedInstanceState)
 	{
@@ -58,6 +45,23 @@ public class LevelAdvanceActivity extends BaseActivity{
 		setContentView(R.layout.next);
 		
 		levelUp();
-		startTimer();
+		
+		videoView = (VideoView)findViewById(R.id.videoView);   
+		videoView.setMediaController(null);
+	    
+	    Uri uri = Uri.parse("android.resource://"+getPackageName()+"/"+R.raw.go_deeper);
+	    videoView.setVideoURI(uri);
+	    
+	    videoView.start();  
+	    
+	 // video finish listener
+        videoView.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+            	//Close activity at the end of the video
+            	close();
+            }
+        });		  
 	}	
 }

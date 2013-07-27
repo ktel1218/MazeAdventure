@@ -4,14 +4,8 @@
     android:layout_height="match_parent"
     android:background="@drawable/background"    >
     
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="You go deeper into the maze..."
-        android:textSize="30sp"
-        android:textStyle="normal|bold|italic"
-        android:layout_margin="20dp"
-        />
+    <VideoView android:layout_height="wrap_content"
+	        android:layout_width="wrap_content"
+	        android:id="@+id/videoView"/>
     
 </FrameLayout>
