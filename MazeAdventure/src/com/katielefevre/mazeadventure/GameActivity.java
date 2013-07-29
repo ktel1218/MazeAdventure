@@ -24,7 +24,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class GameActivity extends BaseActivity 
-{   
+{ 
 	public final static int MAZE_REQUEST = 1;
 	public final static int MAZE_QUIT_RESULT = 1;
 	
@@ -32,10 +32,54 @@ public class GameActivity extends BaseActivity
 	private Handler RedrawHandler = new Handler();
 	
 	private Timer mTmr = null;
-
 	boolean mFirstCellExited = false;
-
 	private int mScrWidth, mScrHeight;
+	
+	private final static int FREQ_MSECS = 20;
+	private final static float FREQ_SECS = FREQ_MSECS / 1000f;
+	private final static double HALF_TSQUARED = Math.pow(FREQ_SECS, 2) / 2;
+	private final static double REAL_WIDTH = 0.254; // 10" width game board
+	private double SCALE_FACTOR = 0;
+	
+	private void LogSize() {
+		if (BuildConfig.DEBUG) {
+			StringBuilder sb = new StringBuilder();
+			sb.append("H: ").append(mScrHeight).append(", W: ").append(mScrWidth);
+			android.util.Log.d(getLocalClassName(), sb.toString());
+		}
+	}
+	
+	private void LogPointF(String header, PointF mBallAccel) {
+		if (BuildConfig.DEBUG) {
+			StringBuilder sb = new StringBuilder();
+			sb.append(header).append(": x: ").append(mBallAccel.x).append(", y: ").append(mBallAccel.y);
+			android.util.Log.d(getLocalClassName(), sb.toString());
+		}				
+	}
+	
+	private void setupScaling() {
+		// get screen dimensions
+		Display display = getWindowManager().getDefaultDisplay();  
+
+		Point size = new Point();
+		display.getSize(size);
+		
+		mScrWidth = size.x;
+		mScrHeight = size.y;	
+		
+		SCALE_FACTOR = mScrWidth/REAL_WIDTH;
+		
+		LogSize();
+	}
+	
+	private void setHeader() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Level [").append(GameSettings.getInstance(this).getLevel()).append("] ");
+		sb.append("Block [").append(Maze.BLOCK).append("] ");
+		
+		TextView levelView = (TextView) findViewById(R.id.levelView);
+		levelView.setText(sb.toString());		
+	}
 	
 	private void exitMaze() {
 		pauseMaze();
@@ -45,11 +89,6 @@ public class GameActivity extends BaseActivity
 	
 	private void pauseMaze() {
 		if (mTmr == null) return;
-		//application moved to background, 
-		// stop background threads
-		
-		//kill & release timer 
-		// (our only background thread)
 		mTmr.cancel(); 
 		mTmr = null;
 	}
@@ -61,15 +100,7 @@ public class GameActivity extends BaseActivity
 		
 		getWindow().getDecorView().setBackgroundColor(Color.BLACK);
 		
-		//get screen dimensions
-		Display display = getWindowManager().getDefaultDisplay();  
-
-		Point size = new Point();
-		display.getSize(size);
-		
-		mScrWidth = size.x;
-		mScrHeight = size.y;
-		
+		setupScaling();
 		createMaze();
 	}
 	
@@ -80,12 +111,12 @@ public class GameActivity extends BaseActivity
 	private void createMaze() {
 		
 		int BLOCK = GameSettings.getInstance(this).BLOCK();
-		int MWIDTH = mScrWidth/BLOCK;
 		
 		final FrameLayout mainView = 
 				(android.widget.FrameLayout)findViewById(R.id.main_view);
 		
-		mainView.setX((mScrWidth-(MWIDTH*BLOCK))/4);
+		//TODO: Ask Katie about this line
+		//mainView.setX((mScrWidth-(mScrWidth/BLOCK)*BLOCK))/4);
 		
 		mFirstCellExited = false;
 		
@@ -96,36 +127,19 @@ public class GameActivity extends BaseActivity
 
 		mBallView = new MazeBallView(this);
 		mBallView.init(theMaze.Ball);
-		mainView.addView(mBallView); 	//add ball to main screen
+		mBallView.invalidate();
 		
-		mBallView.invalidate(); 		  //call onDraw in BallView
-
-		//TODO - move this
-		StringBuilder sb = new StringBuilder();
-		sb.append("Level [");
-		sb.append(GameSettings.getInstance(this).getLevel());
-		sb.append("] Block [");
-		sb.append(BLOCK);
-		sb.append("]");
-		TextView levelView = (TextView) findViewById(R.id.levelView);
-		levelView.setText(sb.toString());
-		
-		/*//create timer
-		mTimerView = new TimerView(this);
-		mainView.addView(mTimerView); //add timer to main screen
-		mTimerView.invalidate(); //call onDraw in TimerView
-		 */
-
+		mainView.addView(mBallView);
+	
 		//listener for accelerometer, use anonymous class for simplicity
 		((SensorManager)getSystemService(Context.SENSOR_SERVICE)).registerListener(
 				new SensorEventListener() 
 				{    
 					@Override  
 					public void onSensorChanged(SensorEvent event) {  
-						//set ball speed based on phone tilt (ignore Z axis)
-						theMaze.Ball.getBallSpd().x = -event.values[0];
-						theMaze.Ball.getBallSpd().y = event.values[1];
-						//timer event will redraw ball
+						//set ball acceleration based on phone tilt (ignore Z axis)
+						theMaze.Ball.getBallAccel().x = event.values[0];
+						theMaze.Ball.getBallAccel().y = event.values[1];
 					}
 					
 					@Override  
@@ -141,55 +155,61 @@ public class GameActivity extends BaseActivity
 				{
 					@Override
 					public boolean onTouch(android.view.View v, android.view.MotionEvent e) {
+						PointF mBallAccel = Maze.getInstance().Ball.getBallAccel();
+						PointF mBallPos = Maze.getInstance().Ball.getBallPos();
+						PointF mBallSpd = Maze.getInstance().Ball.getBallSpd();
+						LogPointF("Position", mBallPos);
+						LogPointF("Acceleration", mBallAccel);
+						LogPointF("Speed", mBallSpd);
 						return true;
 					}
 				}); 
 	}
 	
+	//
+	// application moved to foreground 
+	// (also occurs at application startup)
 	private void resumeMaze() {
-		//application moved to foreground 
-		// (also occurs at application startup)
-		//
+    //
 		// create timer to move ball to new position
-		//
+		
 		mTmr = new Timer(); 
 		TimerTask task = new TimerTask() {
 			@Override
 			public void run() {
-
 				int BLOCK = Maze.BLOCK;
 				int wallWidth = Maze.WALL_WIDTH;
 				Maze.Cell[][] maze = Maze.getInstance().cells;
 				
 				//if debugging with external device, 
 				//  a log cat viewer will be needed on the device
-				//android.util.Log.d("TiltBall","Timer Hit - " + mBallPos.x + ":" + mBallPos.y);
-
+				
+				PointF mBallAccel = Maze.getInstance().Ball.getBallAccel();
 				PointF mBallPos = Maze.getInstance().Ball.getBallPos();
 				PointF mBallSpd = Maze.getInstance().Ball.getBallSpd();
 				float mRadius = Maze.getInstance().Ball.getRadius();
 				
-				//move ball based on current speed
-				mBallPos.x += mBallSpd.x*1.1;
-				mBallPos.y += mBallSpd.y*1.1;
-
+				mBallSpd.x += mBallAccel.x * FREQ_SECS;
+				mBallSpd.y += mBallAccel.y * FREQ_SECS;
+				
+				mBallPos.x -= (mBallSpd.x * FREQ_SECS - mBallAccel.x * HALF_TSQUARED) * SCALE_FACTOR;
+				mBallPos.y += (mBallSpd.y * FREQ_SECS - mBallAccel.y * HALF_TSQUARED) * SCALE_FACTOR; 
+				
 				//get the balls square/maze cell
 				int currentCellX =(int)(mBallPos.x) / BLOCK;
 				int currentCellY =(int)(mBallPos.y) / BLOCK;
 
 				//COLLISION DETECTION
-
-				//TRY
 				try{
 
 					//is there a top wall?
 					if (maze[currentCellX][currentCellY].walls[Maze.Wall.NORTH])
 					{
 						//don't go over top wall
-
 						if (mBallPos.y-mRadius < currentCellY*BLOCK+wallWidth)
 						{
 							mBallPos.y = currentCellY*BLOCK+wallWidth+mRadius;
+							mBallSpd.y = 0f;
 							//System.out.println("top collision detected");
 						}
 					}
@@ -201,6 +221,7 @@ public class GameActivity extends BaseActivity
 						if (mBallPos.y+mRadius >= currentCellY*BLOCK+BLOCK)
 						{
 							mBallPos.y = currentCellY*BLOCK+BLOCK-mRadius;
+							mBallSpd.y = 0f;
 							//System.out.println("bottom collision detected");
 						}
 					}
@@ -212,6 +233,7 @@ public class GameActivity extends BaseActivity
 						if (mBallPos.x-mRadius < currentCellX*BLOCK+wallWidth)
 						{
 							mBallPos.x = currentCellX*BLOCK+wallWidth+mRadius;
+							mBallSpd.x = 0f;
 							//System.out.println("left collision detected");
 						}
 					}
@@ -223,6 +245,7 @@ public class GameActivity extends BaseActivity
 						if (mBallPos.x+mRadius >= currentCellX*BLOCK+BLOCK)
 						{
 							mBallPos.x = currentCellX*BLOCK+BLOCK-mRadius;
+							mBallSpd.x = 0f;
 							//System.out.println("right collision detected");
 						}
 
@@ -238,6 +261,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.x-mRadius<currentCellX*BLOCK+wallWidth)
 							{
 								mBallPos.x=currentCellX*BLOCK+wallWidth+mRadius;
+								mBallSpd.x = 0f;
 							}
 						}
 						else if(mBallPos.y>((currentCellY*BLOCK)+wallWidth) && mBallPos.y-mRadius < ((currentCellY*BLOCK)+wallWidth))
@@ -246,6 +270,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.y-y<currentCellY*BLOCK+wallWidth)
 							{
 								mBallPos.y=(float) ((currentCellY*BLOCK+wallWidth)+y);
+								mBallSpd.y = 0f;
 							}
 						}
 
@@ -254,6 +279,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.y-mRadius<currentCellY*BLOCK+wallWidth)
 							{
 								mBallPos.y=currentCellY*BLOCK+wallWidth+mRadius;
+								mBallSpd.y = 0f;
 							}
 						}
 
@@ -263,6 +289,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.x-x<(currentCellX*BLOCK)+wallWidth)
 							{
 								mBallPos.x=(float) ((currentCellX*BLOCK+wallWidth)+x);
+								mBallSpd.x = 0f;
 							}
 						}
 					}
@@ -277,6 +304,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.x+mRadius>(currentCellX+1)*BLOCK)
 							{
 								mBallPos.x = (currentCellX+1)*BLOCK-mRadius;
+								mBallSpd.x = 0f;
 							}
 						}
 						else if (mBallPos.y>currentCellY*BLOCK+wallWidth && mBallPos.y-mRadius<currentCellY*BLOCK+wallWidth)
@@ -285,6 +313,7 @@ public class GameActivity extends BaseActivity
 							if ((mBallPos.x+x)>((currentCellX+1)*BLOCK))
 							{
 								mBallPos.x=(float) (((currentCellX+1)*BLOCK)-x);
+								mBallSpd.x = 0f;
 							}
 						}
 					}
@@ -299,6 +328,7 @@ public class GameActivity extends BaseActivity
 							if (mBallPos.y+mRadius>(currentCellY+1)*BLOCK)
 							{
 								mBallPos.y = (currentCellY+1)*BLOCK-mRadius;
+								mBallSpd.y = 0f;
 							}
 						}
 						else if (mBallPos.x>currentCellX*BLOCK+wallWidth && mBallPos.x-mRadius<currentCellX*BLOCK+wallWidth)
@@ -307,6 +337,7 @@ public class GameActivity extends BaseActivity
 							if ((mBallPos.y+y)>((currentCellY+1)*BLOCK))
 							{
 								mBallPos.y=(float) (((currentCellY+1)*BLOCK)-y);
+								mBallSpd.y = 0f;
 							}
 						}
 					}
@@ -323,6 +354,7 @@ public class GameActivity extends BaseActivity
 							if ((mBallPos.x+x)>((currentCellX+1)*BLOCK))
 							{
 								mBallPos.x=(float) (((currentCellX+1)*BLOCK)-x);
+								mBallSpd.x = 0f;
 							}
 						}
 						else if (mBallPos.x+mRadius>(currentCellX+1)*BLOCK)//collide with y
@@ -331,17 +363,16 @@ public class GameActivity extends BaseActivity
 							if ((mBallPos.y+y)>((currentCellY+1)*BLOCK))
 							{
 								mBallPos.y=(float) (((currentCellY+1)*BLOCK)-y);
+								mBallSpd.y = 0f;
 							}
 						}
 					}
 
 				}
-				catch(ArrayIndexOutOfBoundsException e) {
-					
+				catch(ArrayIndexOutOfBoundsException e) 
+				{
+				
 				}
-
-				//CATCH, Array out of bounds
-				///////
 
 				if (currentCellX == 0 && currentCellY == 0)
 				{				
@@ -376,19 +407,34 @@ public class GameActivity extends BaseActivity
 				{
 				
 					//collision with sides of screen in case of no wall glitch
-					if ((mBallPos.x + mRadius) > mScrWidth) mBallPos.x=mScrWidth-mRadius;
-					if ((mBallPos.y + mRadius) > mScrHeight) mBallPos.y=mScrHeight-mRadius;
-					if ((mBallPos.x - mRadius) < 0) mBallPos.x=0+mRadius;
-					if ((mBallPos.y - mRadius) < 0) mBallPos.y=0+mRadius;
+					if ((mBallPos.x + mRadius) > mScrWidth)
+					{
+						mBallPos.x=mScrWidth-mRadius;
+						mBallSpd.x = 0f;
+					}
+					if ((mBallPos.y + mRadius) > mScrHeight)
+					{
+						mBallPos.y=mScrHeight-mRadius;
+						mBallSpd.y = 0f;
+					}
+					if ((mBallPos.x - mRadius) < 0) 
+					{
+						mBallPos.x=0+mRadius;
+						mBallSpd.x = 0f;
+					}
+					if ((mBallPos.y - mRadius) < 0)
+					{
+						mBallPos.y=0+mRadius;
+						mBallSpd.y = 0f;
+					}
 	
 					//END OF COLLISION DETECTION
 	
-					//redraw ball. Must run in background 
-				    //  thread to prevent thread lock.
 					RedrawHandler.post(new Runnable() 
 					{
 						@Override
-						public void run() {    
+						public void run() { 
+							setHeader();
 							mBallView.invalidate();
 						}
 					});
@@ -396,7 +442,7 @@ public class GameActivity extends BaseActivity
 
 			}}; // TimerTask
 
-			mTmr.schedule(task, 10, 10); //start timer
+			mTmr.schedule(task, 10, FREQ_MSECS); 
 	}
 	
 	private void completeMaze() {
