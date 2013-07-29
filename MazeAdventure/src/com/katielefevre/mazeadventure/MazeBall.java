@@ -9,10 +9,10 @@ import android.graphics.PointF;
 public class MazeBall {
 	private final float RADIUS_FACTOR = (float) 0.25;
 	
+	private PointF mBallAccel = new PointF();
 	private PointF mBallPos = new PointF();
 	private PointF mBallSpd = new PointF();
 	private float mRadius; 
-	//private int block;
 	
 	private MazeBall () { }
 	private static MazeBall Instance = null;
@@ -32,24 +32,30 @@ public class MazeBall {
 		setRadius(RADIUS_FACTOR * block);
 		// STARTS BALL IN UPPER LEFT OF MAZE
 		setBallPos(new PointF(0, 0));
-		// STARTS BALL IN UPPER LEFT OF MAZE
 		setBallSpd(new PointF(0, 0));
+		setBallAccel(new PointF(0, 0));
 		//
 	}
 	
 	public PointF getBallPos() {
 		return mBallPos;
 	}
-	public void setBallPos(PointF mBallPos) {
-		this.mBallPos = mBallPos;
+	public void setBallPos(PointF ballPos) {
+		this.mBallPos = ballPos;
 	}
 
+	public PointF getBallAccel() {
+		return mBallAccel;
+	}
+	public void setBallAccel(PointF ballAccel) {
+		this.mBallAccel = ballAccel;
+	}
+	
 	public PointF getBallSpd() {
 		return mBallSpd;
 	}
-
-	public void setBallSpd(PointF mBallSpd) {
-		this.mBallSpd = mBallSpd;
+	public void setBallSpd(PointF ballSpd) {
+		this.mBallSpd = ballSpd;
 	}
 
 	public float getRadius() {

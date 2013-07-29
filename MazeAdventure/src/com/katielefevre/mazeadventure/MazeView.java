@@ -1,11 +1,14 @@
 package com.katielefevre.mazeadventure;
 
+import java.util.List;
 import java.util.Random;
+import java.util.Vector;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.view.View;
 
 public class MazeView extends View
@@ -18,6 +21,7 @@ public class MazeView extends View
 	private Paint wallPaint = new Paint(Color.BLACK);
 	
 	private Maze theMaze;
+	private List<BackgroundCell> theBG;
 	
 	public MazeView(Context context) { 
 		super(context);
@@ -35,8 +39,10 @@ public class MazeView extends View
 
 	public void init(Maze maze) {
 		theMaze = maze;	
+		createBG();
 	}
 	
+	@Override
 	public void onDraw(Canvas g)
 	{	
 		super.onDraw(g);
@@ -45,7 +51,6 @@ public class MazeView extends View
 		
 		drawBG(g);
 		drawMaze(g);
-
 	}
 	
 	private void drawMaze(Canvas g)
@@ -77,17 +82,28 @@ public class MazeView extends View
 
 	private void drawBG(Canvas g)
 	{
-
+		for (BackgroundCell cell : theBG) {
+			texturePaint.setColor(cell.color);
+			g.drawRect(cell.square, texturePaint);
+		}
+	}
+	
+	private void createBG()
+	{
 		int squaresize = (int)(0.5 * Maze.WALL_WIDTH);
-		int width = theMaze.getWidth() / squaresize;   //45;
-		int height = theMaze.getHeight() / squaresize; //65;
+		int width = theMaze.getWidth() / squaresize; 
+		int height = theMaze.getHeight() / squaresize;
+		
+		theBG = new Vector<BackgroundCell>();
 		
 		for (int i=0; i<height; i++)
 		{
 			for (int j=1; j<width; j++)
 			{
-				double dFromB = Math.sqrt(((0-i)*(0-i))+((0-j)*(0-j)));   //Distance from Beginning
-				double dFromE = Math.sqrt(((height-i)*(height-i))+((width-j)*(width-j)));  //Distance from End
+			  // Distance from Beginning
+				double dFromB = Math.sqrt(((0-i)*(0-i))+((0-j)*(0-j)));   
+			  // Distance from End
+				double dFromE = Math.sqrt(((height-i)*(height-i))+((width-j)*(width-j)));  
 
 				Random rand = new Random();
 
@@ -100,7 +116,6 @@ public class MazeView extends View
 				double startHue=280;
 				double endHue=80;
 
-
 				if (dFromB<gradientSize)
 				{
 					mainHue=(int) ((((mainHue-startHue)/gradientSize)*dFromB)+startHue);   //y=mx+b
@@ -109,14 +124,14 @@ public class MazeView extends View
 				if (dFromE<gradientSize)
 				{
 					mainHue=(int) ((((mainHue-endHue)/gradientSize)*dFromE)+endHue);
-
 				}
 
 				int randomNum_value = rand.nextInt(max-min+1)+min;//generate random number for value
-				texturePaint.setColor( Color.HSVToColor( new float[]{ mainHue, 1, (float)(randomNum_value*.01)} ) );
+				int color = Color.HSVToColor( new float[]{ mainHue, 1, (float)(randomNum_value*.01)} );
 
 				//hue (0-360), saturation (0-1), value (0-1)
-				g.drawRect((squaresize * j), (squaresize * i), (squaresize * j)+squaresize, (squaresize * i)+squaresize, texturePaint);
+				Rect square = new Rect((squaresize * j), (squaresize * i), (squaresize * j)+squaresize, (squaresize * i)+squaresize);
+				theBG.add(new BackgroundCell(square, color));
 			}
 		}
 	}
